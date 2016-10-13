@@ -3,7 +3,9 @@
 #include <iostream>
 #include <fstream>
 #include <string.h>
+#include "json.hpp"
 using namespace std;
+using json = nlohmann::json;
 int main(int argc, char* argv[])
 {
     SAConnection con; // create connection object
@@ -49,11 +51,9 @@ int main(int argc, char* argv[])
                     + column
                     + ") values(";
             while(!file.eof()){
-                i ++;
                 getline(file,o_values);
                 if(o_values.empty())
                     break;
-                cout<<i<<"   "<<o_values<<endl;
                 char *value ;
                 value = strtok((char*)o_values.c_str(),",");
                 while(value != NULL)
@@ -66,8 +66,30 @@ int main(int argc, char* argv[])
             }
             sqlcmd += ")" ;
             cout<< sqlcmd <<endl;
-        } else if(file && !strcmp((filename + strlen(filename) - 4),"json")){
-
+        } else if(file && !strcmp((filename + strlen(filename) - 4),"json"))
+        { //JSON
+            string jsonc;
+            while(!file.eof()){
+                string tmp;
+                getline(file,tmp);
+                jsonc += tmp;
+            }
+            json j = json::parse(jsonc);
+            sqlcmd = insert_proto
+                    + table
+                    + " (";
+            for (json::iterator it = j.begin(); it != j.end();) {
+                 sqlcmd += it.key();
+                 if(++it != j.end()) sqlcmd += ",";
+            }
+            sqlcmd += ") values(";
+            for (json::iterator it = j.begin(); it != j.end();) {
+                    string v = it.value();
+                 sqlcmd += "\"" + v + "\"";
+                 if(++it != j.end()) sqlcmd += ",";
+            }
+            sqlcmd += ")";
+            cout << sqlcmd << endl;
         }
         cout << "Enter username: ";
         cin.getline(uid,50);
@@ -87,8 +109,7 @@ int main(int argc, char* argv[])
         // autodisconnect will ocur in destructor if needed
         file.close();
         con.Disconnect();
-
-        printf("Imported\nDisconnected!\n");
+        cout << "Imported " << filename << "to " << db << '.' << table;
     }
     catch(SAException &x)
     {
